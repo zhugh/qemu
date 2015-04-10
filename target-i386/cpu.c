@@ -2745,6 +2745,7 @@ static void x86_cpu_apic_create(X86CPU *cpu, Error **errp)
     /* TODO: convert to link<> */
     apic = APIC_COMMON(cpu->apic_state);
     apic->cpu = cpu;
+    apic->apicbase = APIC_DEFAULT_ADDRESS | MSR_IA32_APICBASE_ENABLE;
 }
 
 static void x86_cpu_apic_realize(X86CPU *cpu, Error **errp)
@@ -2789,8 +2790,10 @@ static void x86_cpu_realizefn(DeviceState *dev, Error **errp)
     X86CPU *cpu = X86_CPU(dev);
     X86CPUClass *xcc = X86_CPU_GET_CLASS(dev);
     CPUX86State *env = &cpu->env;
+    APICCommonState *apic;
     Error *local_err = NULL;
     static bool ht_warned;
+    static bool apic_mmio_map_once;
 
     if (cpu->apic_id < 0) {
         error_setg(errp, "apic-id property was not initialized properly");
@@ -2877,6 +2880,18 @@ static void x86_cpu_realizefn(DeviceState *dev, Error **errp)
     if (local_err != NULL) {
         goto out;
     }
+
+    /* Map APIC MMIO area */
+    apic = APIC_COMMON(cpu->apic_state);
+    if (!apic_mmio_map_once) {
+        memory_region_add_subregion_overlap(get_system_memory(),
+                                            apic->apicbase &
+                                            MSR_IA32_APICBASE_BASE,
+                                            &apic->io_memory,
+                                            0x1000);
+        apic_mmio_map_once = true;
+    }
+
     cpu_reset(cs);
 
     xcc->parent_realize(dev, &local_err);
