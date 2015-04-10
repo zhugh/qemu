@@ -59,7 +59,6 @@
 #include "qemu/error-report.h"
 #include "hw/acpi/acpi.h"
 #include "hw/acpi/cpu_hotplug.h"
-#include "hw/cpu/icc_bus.h"
 #include "hw/boards.h"
 #include "hw/pci/pci_host.h"
 #include "acpi-build.h"
@@ -1052,22 +1051,15 @@ void pc_acpi_smi_interrupt(void *opaque, int irq, int level)
 }
 
 static X86CPU *pc_new_cpu(const char *cpu_model, int64_t apic_id,
-                          DeviceState *icc_bridge, Error **errp)
+                          Error **errp)
 {
     X86CPU *cpu = NULL;
     Error *local_err = NULL;
-
-    if (icc_bridge == NULL) {
-        error_setg(&local_err, "Invalid icc-bridge value");
-        goto out;
-    }
 
     cpu = cpu_x86_create(cpu_model, &local_err);
     if (local_err != NULL) {
         goto out;
     }
-
-    qdev_set_parent_bus(DEVICE(cpu), qdev_get_child_bus(icc_bridge, "icc"));
 
     object_property_set_int(OBJECT(cpu), apic_id, "apic-id", &local_err);
     object_property_set_bool(OBJECT(cpu), true, "realized", &local_err);
@@ -1083,7 +1075,6 @@ out:
 
 void pc_hot_add_cpu(const int64_t id, Error **errp)
 {
-    DeviceState *icc_bridge;
     MachineState *machine = MACHINE(qdev_get_machine());
     X86CPU *cpu;
     int64_t apic_id = x86_cpu_apic_id_from_index(id);
@@ -1113,9 +1104,7 @@ void pc_hot_add_cpu(const int64_t id, Error **errp)
         return;
     }
 
-    icc_bridge = DEVICE(object_resolve_path_type("icc-bridge",
-                                                 TYPE_ICC_BRIDGE, NULL));
-    cpu = pc_new_cpu(machine->cpu_model, apic_id, icc_bridge, &local_err);
+    cpu = pc_new_cpu(machine->cpu_model, apic_id, &local_err);
     if (local_err) {
         error_propagate(errp, local_err);
         return;
@@ -1123,7 +1112,7 @@ void pc_hot_add_cpu(const int64_t id, Error **errp)
     object_unref(OBJECT(cpu));
 }
 
-void pc_cpus_init(PCMachineState *pcms, DeviceState *icc_bridge)
+void pc_cpus_init(PCMachineState *pcms)
 {
     int i;
     X86CPU *cpu = NULL;
@@ -1149,7 +1138,7 @@ void pc_cpus_init(PCMachineState *pcms, DeviceState *icc_bridge)
 
     for (i = 0; i < smp_cpus; i++) {
         cpu = pc_new_cpu(machine->cpu_model, x86_cpu_apic_id_from_index(i),
-                         icc_bridge, &error);
+                         &error);
         if (error) {
             error_report_err(error);
             exit(1);
