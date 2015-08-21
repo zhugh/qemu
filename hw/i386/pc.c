@@ -1081,11 +1081,10 @@ out:
     return cpu;
 }
 
-static const char *current_cpu_model;
-
 void pc_hot_add_cpu(const int64_t id, Error **errp)
 {
     DeviceState *icc_bridge;
+    MachineState *machine = MACHINE(qdev_get_machine());
     X86CPU *cpu;
     int64_t apic_id = x86_cpu_apic_id_from_index(id);
     Error *local_err = NULL;
@@ -1116,7 +1115,7 @@ void pc_hot_add_cpu(const int64_t id, Error **errp)
 
     icc_bridge = DEVICE(object_resolve_path_type("icc-bridge",
                                                  TYPE_ICC_BRIDGE, NULL));
-    cpu = pc_new_cpu(current_cpu_model, apic_id, icc_bridge, &local_err);
+    cpu = pc_new_cpu(machine->cpu_model, apic_id, icc_bridge, &local_err);
     if (local_err) {
         error_propagate(errp, local_err);
         return;
@@ -1124,22 +1123,22 @@ void pc_hot_add_cpu(const int64_t id, Error **errp)
     object_unref(OBJECT(cpu));
 }
 
-void pc_cpus_init(const char *cpu_model, DeviceState *icc_bridge)
+void pc_cpus_init(PCMachineState *pcms, DeviceState *icc_bridge)
 {
     int i;
     X86CPU *cpu = NULL;
+    MachineState *machine = MACHINE(pcms);
     Error *error = NULL;
     unsigned long apic_id_limit;
 
     /* init CPUs */
-    if (cpu_model == NULL) {
+    if (machine->cpu_model == NULL) {
 #ifdef TARGET_X86_64
-        cpu_model = "qemu64";
+        machine->cpu_model = "qemu64";
 #else
-        cpu_model = "qemu32";
+        machine->cpu_model = "qemu32";
 #endif
     }
-    current_cpu_model = cpu_model;
 
     apic_id_limit = pc_apic_id_limit(max_cpus);
     if (apic_id_limit > ACPI_CPU_HOTPLUG_ID_LIMIT) {
@@ -1149,7 +1148,7 @@ void pc_cpus_init(const char *cpu_model, DeviceState *icc_bridge)
     }
 
     for (i = 0; i < smp_cpus; i++) {
-        cpu = pc_new_cpu(cpu_model, x86_cpu_apic_id_from_index(i),
+        cpu = pc_new_cpu(machine->cpu_model, x86_cpu_apic_id_from_index(i),
                          icc_bridge, &error);
         if (error) {
             error_report_err(error);
