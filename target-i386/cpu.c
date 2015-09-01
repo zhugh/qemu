@@ -2881,9 +2881,18 @@ static void x86_cpu_realizefn(DeviceState *dev, Error **errp)
         goto out;
     }
 
-    /* Map APIC MMIO area */
+    /* Map APIC MMIO area, use per-CPU address space if available (TCG
+     * supports it, KVM doesn't). This allows the APIC base address of
+     * each CPU to be moved independently.
+     */
     apic = APIC_COMMON(cpu->apic_state);
-    if (!apic_mmio_map_once) {
+    if (tcg_enabled()) {
+        memory_region_add_subregion_overlap(cpu->cpu_as_root,
+                                            apic->apicbase &
+                                            MSR_IA32_APICBASE_BASE,
+                                            &apic->io_memory,
+                                            0x1000);
+    } else if (!apic_mmio_map_once) {
         memory_region_add_subregion_overlap(get_system_memory(),
                                             apic->apicbase &
                                             MSR_IA32_APICBASE_BASE,
