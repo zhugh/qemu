@@ -43,6 +43,7 @@
 
 #include "sysemu/sysemu.h"
 #include "hw/qdev-properties.h"
+#include "hw/i386/topology.h"
 #ifndef CONFIG_USER_ONLY
 #include "exec/address-spaces.h"
 #include "hw/xen/xen.h"
@@ -3099,6 +3100,14 @@ static int64_t x86_cpu_get_arch_id(CPUState *cs)
     return cpu->apic_id;
 }
 
+static int64_t x86_cpu_get_compat_arch_id(CPUState *cs)
+{
+    X86CPU *cpu = X86_CPU(cs);
+
+    return x86_compat_index_from_apic_id(smp_cores, smp_threads,
+                                         cpu->apic_id);
+}
+
 static bool x86_cpu_get_paging_enabled(const CPUState *cs)
 {
     X86CPU *cpu = X86_CPU(cs);
@@ -3181,6 +3190,7 @@ static void x86_cpu_common_class_init(ObjectClass *oc, void *data)
     cc->gdb_read_register = x86_cpu_gdb_read_register;
     cc->gdb_write_register = x86_cpu_gdb_write_register;
     cc->get_arch_id = x86_cpu_get_arch_id;
+    cc->get_compat_arch_id = x86_cpu_get_compat_arch_id;
     cc->get_paging_enabled = x86_cpu_get_paging_enabled;
 #ifdef CONFIG_USER_ONLY
     cc->handle_mmu_fault = x86_cpu_handle_mmu_fault;

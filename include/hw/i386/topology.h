@@ -132,4 +132,37 @@ static inline apic_id_t x86_apicid_from_cpu_idx(unsigned nr_cores,
     return apicid_from_topo_ids(nr_cores, nr_threads, &topo);
 }
 
+/* Calculate CPU topology based on CPU APIC ID.
+ * + */
+static inline void x86_topo_ids_from_apic_id(unsigned nr_cores,
+                                             unsigned nr_threads,
+                                             apic_id_t apic_id,
+                                             X86CPUTopoInfo *topo)
+{
+    unsigned offset_mask;
+    topo->pkg_id = apic_id >> apicid_pkg_offset(nr_cores, nr_threads);
+
+    offset_mask = (1L << apicid_pkg_offset(nr_cores, nr_threads)) - 1;
+    topo->core_id = (apic_id & offset_mask)
+                     >> apicid_core_offset(nr_cores, nr_threads);
+
+    offset_mask = (1L << apicid_core_offset(nr_cores, nr_threads)) - 1;
+    topo->smt_id = apic_id & offset_mask;
+}
+
+/* Caculate CPU compat index based on CPU APIC ID.
+ */
+static inline unsigned x86_compat_index_from_apic_id(unsigned nr_cores,
+                                                     unsigned nr_threads,
+                                                     apic_id_t apic_id)
+{
+    X86CPUTopoInfo topo;
+
+    x86_topo_ids_from_apic_id(nr_cores, nr_threads, apic_id, &topo);
+
+    return topo.pkg_id * nr_cores * nr_threads +
+           topo.core_id * nr_threads +
+           topo.smt_id;
+}
+
 #endif /* HW_I386_TOPOLOGY_H */
