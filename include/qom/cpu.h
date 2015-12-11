@@ -763,6 +763,8 @@ void QEMU_NORETURN cpu_abort(CPUState *cpu, const char *fmt, ...)
     GCC_FMT_ATTR(2, 3);
 void cpu_exec_exit(CPUState *cpu);
 
+void cpu_vmstate_register(CPUState *cpu);
+
 #ifdef CONFIG_SOFTMMU
 extern const struct VMStateDescription vmstate_cpu_common;
 #else

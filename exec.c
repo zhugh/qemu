@@ -569,6 +569,23 @@ void tcg_cpu_address_space_init(CPUState *cpu, AddressSpace *as)
 }
 #endif
 
+void cpu_vmstate_register(CPUState *cpu)
+{
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+    int cpu_index = cc->get_arch_id(cpu) + max_cpus;
+    int compat_index = cc->get_compat_arch_id(cpu);
+
+    if (qdev_get_vmsd(DEVICE(cpu)) == NULL) {
+        vmstate_register_with_alias_id(NULL, cpu_index, &vmstate_cpu_common,
+                                       cpu, compat_index, 3);
+    }
+
+    if (cc->vmsd != NULL) {
+        vmstate_register_with_alias_id(NULL, cpu_index, cc->vmsd,
+                                       cpu, compat_index, 3);
+    }
+}
+
 #ifndef CONFIG_USER_ONLY
 static DECLARE_BITMAP(cpu_index_map, MAX_CPUMASK_BITS);
 
@@ -616,7 +633,6 @@ void cpu_exec_exit(CPUState *cpu)
 
 void cpu_exec_init(CPUState *cpu, Error **errp)
 {
-    CPUClass *cc = CPU_GET_CLASS(cpu);
     int cpu_index;
     Error *local_err = NULL;
 
@@ -628,7 +644,8 @@ void cpu_exec_init(CPUState *cpu, Error **errp)
 #if defined(CONFIG_USER_ONLY)
     cpu_list_lock();
 #endif
-    cpu_index = cpu->cpu_index = cpu_get_free_index(&local_err);
+    cpu_index = cpu_get_free_index(&local_err);
+    cpu->cpu_index = cpu_index;
     if (local_err) {
         error_propagate(errp, local_err);
 #if defined(CONFIG_USER_ONLY)
@@ -640,18 +657,13 @@ void cpu_exec_init(CPUState *cpu, Error **errp)
 #if defined(CONFIG_USER_ONLY)
     cpu_list_unlock();
 #endif
-    if (qdev_get_vmsd(DEVICE(cpu)) == NULL) {
-        vmstate_register(NULL, cpu_index, &vmstate_cpu_common, cpu);
-    }
 #if defined(CPU_SAVE_VERSION) && !defined(CONFIG_USER_ONLY)
+    CPUClass *cc = CPU_GET_CLASS(cpu)
     register_savevm(NULL, "cpu", cpu_index, CPU_SAVE_VERSION,
                     cpu_save, cpu_load, cpu->env_ptr);
     assert(cc->vmsd == NULL);
     assert(qdev_get_vmsd(DEVICE(cpu)) == NULL);
 #endif
-    if (cc->vmsd != NULL) {
-        vmstate_register(NULL, cpu_index, cc->vmsd, cpu);
-    }
 }
 
 #if defined(CONFIG_USER_ONLY)

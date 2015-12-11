@@ -304,6 +304,10 @@ static void cpu_common_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cpu = CPU(dev);
 
+#if !defined(CONFIG_USER_ONLY)
+    cpu_vmstate_register(cpu);
+#endif
+
     if (dev->hotplugged) {
         cpu_synchronize_post_init(cpu);
         cpu_resume(cpu);
