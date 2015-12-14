@@ -3146,6 +3146,13 @@ static void x86_cpu_initfn(Object *obj)
     }
 }
 
+static void x86_cpu_finalizefn(Object *obj)
+{
+    CPUState *cs = CPU(obj);
+
+    CPU_REMOVE(cs);
+}
+
 static int64_t x86_cpu_get_arch_id(CPUState *cs)
 {
     X86CPU *cpu = X86_CPU(cs);
@@ -3275,6 +3282,7 @@ static const TypeInfo x86_cpu_type_info = {
     .parent = TYPE_CPU,
     .instance_size = sizeof(X86CPU),
     .instance_init = x86_cpu_initfn,
+    .instance_finalize = x86_cpu_finalizefn,
     .abstract = true,
     .class_size = sizeof(X86CPUClass),
     .class_init = x86_cpu_common_class_init,

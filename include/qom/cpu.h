@@ -341,6 +341,7 @@ struct CPUState {
 QTAILQ_HEAD(CPUTailQ, CPUState);
 extern struct CPUTailQ cpus;
 #define CPU_NEXT(cpu) QTAILQ_NEXT(cpu, node)
+#define CPU_REMOVE(cpu) QTAILQ_REMOVE(&cpus, cpu, node)
 #define CPU_FOREACH(cpu) QTAILQ_FOREACH(cpu, &cpus, node)
 #define CPU_FOREACH_SAFE(cpu, next_cpu) \
     QTAILQ_FOREACH_SAFE(cpu, &cpus, node, next_cpu)
