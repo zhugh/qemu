@@ -44,6 +44,7 @@
 #include "sysemu/sysemu.h"
 #include "hw/qdev-properties.h"
 #include "hw/i386/topology.h"
+#include "hw/i386/pc.h"
 #ifndef CONFIG_USER_ONLY
 #include "exec/address-spaces.h"
 #include "hw/xen/xen.h"
@@ -1460,6 +1461,7 @@ static void host_x86_cpu_class_init(ObjectClass *oc, void *data)
     dc->props = host_x86_cpu_properties;
     /* Reason: host_x86_cpu_initfn() dies when !kvm_enabled() */
     dc->cannot_destroy_with_object_finalize_yet = true;
+    dc->cannot_instantiate_with_device_add_yet = false;
 }
 
 static void host_x86_cpu_initfn(Object *obj)
@@ -1750,6 +1752,7 @@ static void x86_cpuid_set_apic_id(Object *obj, Visitor *v, void *opaque,
     const int64_t max = UINT32_MAX;
     Error *error = NULL;
     int64_t value;
+    X86CPUTopoInfo topo;
 
     if (dev->realized) {
         error_setg(errp, "Attempt to set property '%s' on '%s' after "
@@ -1762,6 +1765,20 @@ static void x86_cpuid_set_apic_id(Object *obj, Visitor *v, void *opaque,
         error_propagate(errp, error);
         return;
     }
+
+    if (value > x86_cpu_apic_id_from_index(max_cpus - 1)) {
+        error_setg(errp, "CPU with APIC ID %" PRIi64
+                   " is more than MAX APIC ID limits", value);
+        return;
+    }
+
+    x86_topo_ids_from_apic_id(smp_cores, smp_threads, value, &topo);
+    if (topo.smt_id >= smp_threads || topo.core_id >= smp_cores) {
+        error_setg(errp, "CPU with APIC ID %" PRIi64 " does not match "
+                   "topology configuration.", value);
+        return;
+    }
+
     if (value < min || value > max) {
         error_setg(errp, "Property %s.%s doesn't take value %" PRId64
                    " (minimum: %" PRId64 ", maximum: %" PRId64 ")" ,
@@ -2205,8 +2222,10 @@ static void x86_cpu_cpudef_class_init(ObjectClass *oc, void *data)
 {
     X86CPUDefinition *cpudef = data;
     X86CPUClass *xcc = X86_CPU_CLASS(oc);
+    DeviceClass *dc = DEVICE_CLASS(oc);
 
     xcc->cpu_def = cpudef;
+    dc->cannot_instantiate_with_device_add_yet = false;
 }
 
 static void x86_register_cpudef_type(X86CPUDefinition *def)
@@ -2215,6 +2234,7 @@ static void x86_register_cpudef_type(X86CPUDefinition *def)
     TypeInfo ti = {
         .name = typename,
         .parent = TYPE_X86_CPU,
+        .instance_size = sizeof(X86CPU),
         .class_init = x86_cpu_cpudef_class_init,
         .class_data = def,
     };
@@ -2739,10 +2759,28 @@ static void mce_init(X86CPU *cpu)
 }
 
 #ifndef CONFIG_USER_ONLY
+static uint32_t get_free_apic_id(void)
+{
+    int i;
+
+    for (i = 0; i < max_cpus; i++) {
+        uint32_t id = x86_cpu_apic_id_from_index(i);
+
+        if (!cpu_exists(id)) {
+            return id;
+        }
+    }
+
+    return x86_cpu_apic_id_from_index(max_cpus);
+}
+
+#define APIC_ID_NOT_SET (~0U)
+
 static void x86_cpu_apic_create(X86CPU *cpu, Error **errp)
 {
     APICCommonState *apic;
     const char *apic_type = "apic";
+    uint32_t apic_id;
 
     if (kvm_irqchip_in_kernel()) {
         apic_type = "kvm-apic";
@@ -2754,7 +2792,13 @@ static void x86_cpu_apic_create(X86CPU *cpu, Error **errp)
 
     object_property_add_child(OBJECT(cpu), "apic",
                               OBJECT(cpu->apic_state), NULL);
-    qdev_prop_set_uint8(cpu->apic_state, "id", cpu->apic_id);
+    apic_id = object_property_get_int(OBJECT(cpu), "apic-id", NULL);
+    if (apic_id == APIC_ID_NOT_SET) {
+        apic_id = get_free_apic_id();
+        object_property_set_int(OBJECT(cpu), apic_id, "apic-id", errp);
+    }
+
+    qdev_prop_set_uint8(cpu->apic_state, "id", apic_id);
     /* TODO: convert to link<> */
     apic = APIC_COMMON(cpu->apic_state);
     apic->cpu = cpu;

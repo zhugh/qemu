@@ -685,7 +685,7 @@ void enable_compat_apic_id_mode(void)
  * no concept of "CPU index", and the NUMA tables on fw_cfg need the APIC ID of
  * all CPUs up to max_cpus.
  */
-static uint32_t x86_cpu_apic_id_from_index(unsigned int cpu_index)
+uint32_t x86_cpu_apic_id_from_index(unsigned int cpu_index)
 {
     uint32_t correct_id;
     static bool warned;
@@ -1693,13 +1693,7 @@ static void pc_cpu_plug(HotplugHandler *hotplug_dev,
     Error *local_err = NULL;
     PCMachineState *pcms = PC_MACHINE(hotplug_dev);
 
-    if (!dev->hotplugged) {
-        goto out;
-    }
-
     if (!pcms->acpi_dev) {
-        error_setg(&local_err,
-                   "cpu hotplug is not enabled: missing acpi device");
         goto out;
     }
 
