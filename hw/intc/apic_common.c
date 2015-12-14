@@ -371,7 +371,7 @@ static const VMStateDescription vmstate_apic_common_sipi = {
     }
 };
 
-static const VMStateDescription vmstate_apic_common = {
+const VMStateDescription vmstate_apic_common = {
     .name = "apic",
     .version_id = 3,
     .minimum_version_id = 3,
@@ -421,7 +421,6 @@ static void apic_common_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    dc->vmsd = &vmstate_apic_common;
     dc->reset = apic_reset_common;
     dc->props = apic_properties_common;
     dc->realize = apic_common_realize;

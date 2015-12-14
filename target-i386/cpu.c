@@ -2766,9 +2766,18 @@ static void x86_cpu_apic_realize(X86CPU *cpu, Error **errp)
     APICCommonState *apic;
     static bool apic_mmio_map_once;
 
-    if (cpu->apic_state == NULL) {
+    DeviceState *apic_state = cpu->apic_state;
+    CPUClass *cc = CPU_GET_CLASS(CPU(cpu));
+    int cpu_index = cc->get_arch_id(CPU(cpu)) + max_cpus;
+    int compat_index = cc->get_compat_arch_id(CPU(cpu));
+
+    if (apic_state == NULL) {
         return;
     }
+
+    vmstate_register_with_alias_id(NULL, cpu_index, &vmstate_apic_common,
+                                   apic_state, compat_index, 3);
+
     object_property_set_bool(OBJECT(cpu->apic_state), true, "realized",
                              errp);
 

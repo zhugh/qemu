@@ -23,6 +23,7 @@
 #include "cpu.h"
 #include "exec/memory.h"
 #include "qemu/timer.h"
+#include "migration/vmstate.h"
 
 /* APIC Local Vector Table */
 #define APIC_LVT_TIMER                  0
@@ -195,6 +196,8 @@ typedef struct VAPICState {
 } QEMU_PACKED VAPICState;
 
 extern bool apic_report_tpr_access;
+
+extern const VMStateDescription vmstate_apic_common;
 
 void apic_report_irq_delivered(int delivered);
 bool apic_next_timer(APICCommonState *s, int64_t current_time);
