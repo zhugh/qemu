@@ -1531,6 +1531,7 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 
     CPU_FOREACH(cpu) {
         CpuInfoList *info;
+        CPUClass *cc;
 #if defined(TARGET_I386)
         X86CPU *x86_cpu = X86_CPU(cpu);
         CPUX86State *env = &x86_cpu->env;
@@ -1548,11 +1549,12 @@ CpuInfoList *qmp_query_cpus(Error **errp)
         CPUTriCoreState *env = &tricore_cpu->env;
 #endif
 
+        cc = CPU_GET_CLASS(cpu);
         cpu_synchronize_state(cpu);
 
         info = g_malloc0(sizeof(*info));
         info->value = g_malloc0(sizeof(*info->value));
-        info->value->CPU = cpu->cpu_index;
+        info->value->CPU = cc->get_arch_id(cpu);;
         info->value->current = (cpu == first_cpu);
         info->value->halted = cpu->halted;
         info->value->qom_path = object_get_canonical_path(OBJECT(cpu));

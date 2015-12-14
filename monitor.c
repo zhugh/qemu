@@ -1004,7 +1004,10 @@ CPUArchState *mon_get_cpu_env(void)
 
 int monitor_get_cpu_index(void)
 {
-    return mon_get_cpu()->cpu_index;
+    CPUState *cpu = mon_get_cpu();
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+
+    return cc->get_arch_id(cpu);
 }
 
 static void hmp_info_registers(Monitor *mon, const QDict *qdict)
